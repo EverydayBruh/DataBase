@@ -1,51 +1,57 @@
 CREATE TABLE departments (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    location VARCHAR(255) NOT NULL
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    location TEXT NOT NULL
 );
 
 CREATE TABLE products (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
     description TEXT,
-    purchase_price DECIMAL(10, 2) NOT NULL,
-    sale_price DECIMAL(10, 2) NOT NULL,
-    supplier_id INT REFERENCES suppliers(id)
+    purchase_price REAL NOT NULL,
+    sale_price REAL NOT NULL,
+    supplier_id INTEGER,
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
 );
 
 CREATE TABLE suppliers (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
     contact_info TEXT NOT NULL
 );
 
 CREATE TABLE sales (
-    id SERIAL PRIMARY KEY,
-    product_id INT REFERENCES products(id),
-    seller_id INT REFERENCES sellers(id),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER,
+    seller_id INTEGER,
     sale_date DATE NOT NULL,
-    quantity INT NOT NULL,
-    discount DECIMAL(5, 2)
+    quantity INTEGER NOT NULL,
+    discount REAL,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (seller_id) REFERENCES sellers(id)
 );
 
 CREATE TABLE sellers (
-    id SERIAL PRIMARY KEY,
-    first_name VARCHAR(255) NOT NULL,
-    last_name VARCHAR(255) NOT NULL,
-    department_id INT REFERENCES departments(id)
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    department_id INTEGER,
+    FOREIGN KEY (department_id) REFERENCES departments(id)
 );
 
 CREATE TABLE customers (
-    id SERIAL PRIMARY KEY,
-    first_name VARCHAR(255) NOT NULL,
-    last_name VARCHAR(255) NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
     discount_card BOOLEAN NOT NULL,
-    discount DECIMAL(5, 2)
+    discount REAL
 );
 
 CREATE TABLE inventory (
-    id SERIAL PRIMARY KEY,
-    product_id INT REFERENCES products(id),
-    department_id INT REFERENCES departments(id),
-    quantity INT NOT NULL
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER,
+    department_id INTEGER,
+    quantity INTEGER NOT NULL,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (department_id) REFERENCES departments(id)
 );
