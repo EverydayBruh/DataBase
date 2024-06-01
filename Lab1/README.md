@@ -1,5 +1,7 @@
 # НИЯУ МИФИ. Лабораторная работа №1. Журбенко Василий, Б21-525. 2024
 
+[Дополнительное задание](#дополнительное-задание)
+
 ## Предметная область
 
 Сеть магазинов ювелирных изделий. После поступления на склад, изделия распределяются по различным отделам. Необходимо вести учёт наличия товаров в каждом отделе и отслеживать личные продажи продавцов. Важной частью системы является программа лояльности для постоянных покупателей, которая предусматривает скидки. Магазины работают с несколькими поставщиками.  Нужно учитывать, что один и тот же товар может находиться в разных отделах и в разном количестве. Система должна также отслеживать данные о поставщиках, продаже товаров, продавцах, покупателях и инвентаре.
@@ -83,3 +85,74 @@
 Было доказано, что разработанная модель данных соответствует требованиям третьей нормальной формы, что обеспечивает целостность и непротиворечивость хранимых данных. Для наглядного представления взаимосвязей между сущностями была построена диаграмма отношений сущностей.
 Разработанная модель данных была реализована с помощью SQL-сценария, создающего необходимые таблицы и устанавливающего связи между ними.
 Полученная в результате работы модель данных может быть использована для дальнейшей разработки информационной системы для управления сетью магазинов ювелирных изделий.
+
+
+# Дополнительное задание
+
+## Обновленная диаграмма
+![//www.plantuml.com/plantuml/png/hPDDRjmm38NtFeNYLRC8kY-2GMuYo1AT49KfLpz1ZAHtB-tQKbKh2GBCQaPydqW-Kdu8KVcO9jlTn2UOG3pZu1N5xiR0Y0HYzZWflyYVi7nxkHNtm-Nb_ljmoVheFE0ZPHrN7IzT1nGnBg8tC7E5YO-X5w-Tg3AYkHK_15BaEAa9-12YHthaitLQHNHKOhzBrjaxa_HNKne8skDSP-NhoUid5K1o7iqNcDESqB8Kb6s4AzSXpRD5y39N_hVHG_rYfzfHL3fAfD4r1x0s5YItJGJsEcCm6BHB5EN8bPqlXazrFonN3MVVatnF3s0j-7TbdK9qqmT0DOP27PipAW97rXyE_KfgSt4msN7Rwj_UFZEBFaHvUhlg7ApwBbz5-zaSngzNFMzNAszO69opeEZJAI0zyr_db-ijlMc-hATCeu11lBtTtRbNiI-5cRvAqxVWt7i3tvjiixlO1BSdzp-KF_E3ohSOFCIDt0sSigtn7SdBFq67ic7Lsp-pbRnTU00oQR9_0000](./assets/diagram_2.png)
+
+1. **Связь таблицы `customers` с таблицей `sales`**:
+   > Оказавшуюся отдельно таблицу Customers можно легко связать с Sales и, тем самым, сделать частью общей системы: магазины систематически и очень агрессивно этим занимаются
+
+   ```sql
+   CREATE TABLE customers (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       first_name TEXT NOT NULL,
+       last_name TEXT NOT NULL,
+       discount_card BOOLEAN NOT NULL,
+       discount REAL
+   );
+
+   CREATE TABLE sales (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       product_id INTEGER,
+       seller_id INTEGER,
+       customer_id INTEGER,
+       sale_date DATE NOT NULL,
+       quantity INTEGER NOT NULL,
+       discount REAL,
+       sales_channel_id INTEGER,
+       FOREIGN KEY (product_id) REFERENCES products(id),
+       FOREIGN KEY (seller_id) REFERENCES sellers(id),
+       FOREIGN KEY (customer_id) REFERENCES customers(id),
+       FOREIGN KEY (sales_channel_id) REFERENCES sales_channels(id)
+   );
+   ```
+
+2. **Хранение сведений о каналах продаж**:
+   > пусть есть несколько каналов продажи: с доставкой курьером, личным визитом в магазин (и, может, что-нибудь ещё). Может быть такое, что скидка применяется только при покупке тем  или иным способом. Предусмотрите хранение таких сведений в БД
+
+   Добавлена таблица `sales_channels`, которая позволяет хранить информацию о различных каналах продаж. В этой таблице хранится коэффициент скидки, который может применяться в зависимости от канала продаж.
+
+   ```sql
+   CREATE TABLE sales_channels (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       name TEXT NOT NULL,
+       description TEXT,
+       discount_factor REAL NOT NULL
+   );
+   ```
+
+   Поле `sales_channel_id` в таблице `sales` связывает каждую продажу с определённым каналом продаж, что позволяет точно отслеживать, каким образом была совершена покупка и какие скидки были применены.
+
+   ```sql
+   CREATE TABLE sales (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       product_id INTEGER,
+       seller_id INTEGER,
+       customer_id INTEGER,
+       sale_date DATE NOT NULL,
+       quantity INTEGER NOT NULL,
+       discount REAL,
+       sales_channel_id INTEGER,
+       FOREIGN KEY (product_id) REFERENCES products(id),
+       FOREIGN KEY (seller_id) REFERENCES sellers(id),
+       FOREIGN KEY (customer_id) REFERENCES customers(id),
+       FOREIGN KEY (sales_channel_id) REFERENCES sales_channels(id)
+   );
+   ```
+
+## Обновлённый SQL-сценарий
+[Инициализация 2](./scripts/init_2.sql)
+
