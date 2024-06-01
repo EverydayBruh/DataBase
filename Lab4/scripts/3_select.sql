@@ -1,13 +1,13 @@
 SELECT c.first_name, c.last_name
 FROM customers c
-WHERE c.discount > (SELECT 5.0);
+WHERE c.discount > 5.0;
 
 SELECT s.first_name AS seller_name, s.last_name AS seller_last_name,
        c.first_name AS customer_name, c.last_name AS customer_last_name,
        sa.sale_date, sa.quantity, sa.discount
 FROM sales sa
 JOIN sellers s ON sa.seller_id = s.id
-JOIN customers c ON sa.customer_id = c.id;
+JOIN customers c ON sa.customer_id = c.id; 
 
 SELECT p.name AS product_name, s.name AS supplier_name, s.contact_info
 FROM products p
@@ -38,7 +38,7 @@ WITH sales_last_month AS (
   SELECT p.name, SUM(s.quantity) AS total_quantity, SUM(s.quantity * p.sale_price * (1 - COALESCE(s.discount, 0))) AS total_revenue
   FROM sales s
   JOIN products p ON s.product_id = p.id
-  WHERE s.sale_date >= DATE('now', '-1 month')
+  WHERE s.sale_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
   GROUP BY p.name
 )
 SELECT name, total_quantity, total_revenue
