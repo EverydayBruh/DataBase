@@ -5,7 +5,7 @@
 2. [Заполнение](./scripts/2_insert_db.sql)
 3. [Select-запросы](./scripts/3_select.sql)
 
-## Настройка
+## Настройка PostgreSQL
 
 Была выполнена установка и настройка PostgreSQL на операционной системе Ubuntu.
 
