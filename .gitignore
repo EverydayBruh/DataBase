@@ -1,0 +1,27 @@
+# Игнорируем файлы Vagrant
+.vagrant/
+
+# Игнорируем временные файлы операционных систем
+*.DS_Store
+Thumbs.db
+desktop.ini
+
+# Игнорируем логи
+*.log
+
+# Игнорируем временные файлы редакторов
+*.swp
+*.swo
+*.tmp
+*~
+.idea/
+.vscode/
+
+# Игнорируем файлы виртуальных машин
+*.box
+
+# Игнорируем дополнительные файлы, генерируемые Vagrant и плагинами
+vagrant-private/
+.vagrant-metadata/
+.vagrant-version
+VBbox_Machines/
