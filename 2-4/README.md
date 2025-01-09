@@ -52,7 +52,7 @@
 - `quantity` - количество товара в отделе
 ![](assets/mermaid-diagram-2025-01-05-193634.png)
 
-# Добавленные индексы
+# Добавленние индексов
 ```sql
 -- 1. Индекс для поиска товаров по названию
 -- Частый запрос от клиентов и продавцов при поиске конкретных украшений
@@ -83,10 +83,11 @@ CREATE INDEX idx_customers_discount ON customers USING btree (discount_card) WHE
 [Скрипт генерации](scripts/5_large_insert.sql)
 
 # Результаты тестирования индексов
+
 ## Запрос выручки по дням за последние 30 дней
 ```sql
 EXPLAIN ANALYZE
-SELECT
+SELECT 
     s.sale_date,
     SUM(s.quantity * p.sale_price * (1 - COALESCE(s.discount, 0)/100)) as revenue
 FROM sales s
@@ -120,12 +121,17 @@ Execution Time: 2.128 ms
 ```
 </details>
 
-**Комментарий:** Индекс `idx_sales_date_product` работает эффективно для фильтрации по дате, что сокращает общее время выполнения запроса до 2.128 мс.
+**Комментарий:**
+- Используется составной индекс `idx_sales_date_product` (тип: btree), который покрывает поля `sale_date` и `product_id`.
+- Индекс оптимально применяется для фильтрации строк по дате (`sale_date >= CURRENT_DATE - INTERVAL '30 days'`).
+- Bitmap Index Scan дополнительно ускоряет выборку строк, соответствующих указанным условиям, до выполнения хэш-соединения.
+- Итоговая агрегация и сортировка выполняются эффективно за счет компактных структур данных.
+- Время выполнения: 2.128 мс.
 
 ## Анализ продаж по продавцам за 90 дней
 ```sql
 EXPLAIN ANALYZE
-SELECT
+SELECT 
     s.seller_id,
     sel.first_name,
     sel.last_name,
@@ -142,33 +148,39 @@ ORDER BY total_revenue DESC;
 <summary>QUERY PLAN</summary>
 
 ```
-Sort  (cost=374.37..378.37 rows=1600 width=108) (actual time=2.958..2.963 rows=8 loops=1)
+Sort  (cost=706.75..710.75 rows=1600 width=108) (actual time=6.444..6.448 rows=8 loops=1)
   Sort Key: (sum((((s.quantity)::numeric * p.sale_price) * ('1'::numeric - (COALESCE(s.discount, '0'::numeric) / '100'::numeric))))) DESC
-  Sort Method: quicksort  Memory: 25kB
-  ->  HashAggregate  (cost=269.22..289.22 rows=1600 width=108) (actual time=2.940..2.950 rows=8 loops=1)
+  Sort Method: quicksort  Memory: 26kB
+  ->  HashAggregate  (cost=601.60..621.60 rows=1600 width=108) (actual time=6.427..6.436 rows=8 loops=1)
         Group Key: s.seller_id, sel.first_name, sel.last_name
         Batches: 1  Memory Usage: 73kB
-        ->  Hash Join  (cost=73.65..204.85 rows=2575 width=107) (actual time=0.151..1.372 rows=2561 loops=1)
-              Hash Cond: (s.product_id = p.id)
-              ->  Hash Join  (cost=72.47..193.33 rows=2575 width=79) (actual time=0.126..0.991 rows=2561 loops=1)
+        ->  Nested Loop  (cost=107.69..476.20 rows=5016 width=83) (actual time=0.200..3.331 rows=4979 loops=1)
+              ->  Hash Join  (cost=107.39..346.41 rows=5016 width=79) (actual time=0.190..1.921 rows=4979 loops=1)
                     Hash Cond: (s.seller_id = sel.id)
-                    ->  Bitmap Heap Scan on sales s  (cost=44.25..158.31 rows=2575 width=15) (actual time=0.092..0.450 rows=2561 loops=1)
+                    ->  Bitmap Heap Scan on sales s  (cost=79.17..304.95 rows=5016 width=15) (actual time=0.163..0.850 rows=4979 loops=1)
                           Recheck Cond: (sale_date >= (CURRENT_DATE - '90 days'::interval))
-                          Heap Blocks: exact=69
-                          ->  Bitmap Index Scan on idx_sales_date_product  (cost=0.00..43.60 rows=2575 width=0) (actual time=0.080..0.081 rows=2561 loops=1)
+                          Heap Blocks: exact=138
+                          ->  Bitmap Index Scan on idx_sales_date_product  (cost=0.00..77.91 rows=5016 width=0) (actual time=0.147..0.147 rows=4979 loops=1)
                                 Index Cond: (sale_date >= (CURRENT_DATE - '90 days'::interval))
-                    ->  Hash  (cost=18.10..18.10 rows=810 width=68) (actual time=0.012..0.013 rows=8 loops=1)
+                    ->  Hash  (cost=18.10..18.10 rows=810 width=68) (actual time=0.021..0.022 rows=8 loops=1)
                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
-                          ->  Seq Scan on sellers sel  (cost=0.00..18.10 rows=810 width=68) (actual time=0.004..0.005 rows=8 loops=1)
-              ->  Hash  (cost=1.08..1.08 rows=8 width=36) (actual time=0.014..0.014 rows=8 loops=1)
-                    Buckets: 1024  Batches: 1  Memory Usage: 9kB
-                    ->  Seq Scan on products p  (cost=0.00..1.08 rows=8 width=36) (actual time=0.007..0.008 rows=8 loops=1)
-Planning Time: 0.315 ms
-Execution Time: 3.060 ms
+                          ->  Seq Scan on sellers sel  (cost=0.00..18.10 rows=810 width=68) (actual time=0.005..0.006 rows=8 loops=1)
+              ->  Memoize  (cost=0.30..0.50 rows=1 width=12) (actual time=0.000..0.000 rows=1 loops=4979)
+                    Cache Key: s.product_id
+                    Cache Mode: logical
+                    Hits: 4971  Misses: 8  Evictions: 0  Overflows: 0  Memory Usage: 1kB
+                    ->  Index Scan using products_pkey on products p  (cost=0.29..0.49 rows=1 width=12) (actual time=0.002..0.002 rows=1 loops=8)
+                          Index Cond: (id = s.product_id)
+Planning Time: 0.522 ms
+Execution Time: 6.517 ms
 ```
 </details>
 
-**Комментарий:** Несмотря на наличие индекса `idx_sales_seller_date`, PostgreSQL использует только `idx_sales_date_product`. Это связано с оценкой оптимизатора, что сканирование по дате эффективнее для текущего объема данных.
+**Комментарий:**
+- Используется индекс `idx_sales_date_product` (btree) для фильтрации по дате.
+- Memoize позволяет кешировать результаты для повторного использования при соединении с таблицей `products`.
+- Составное хэш-соединение эффективно распределяет нагрузку между таблицами `sales` и `sellers`.
+
 
 ## Поиск товаров в ценовом диапазоне
 ```sql
@@ -182,18 +194,20 @@ ORDER BY sale_price;
 <summary>QUERY PLAN</summary>
 
 ```
-Sort  (cost=48.76..49.63 rows=347 width=61) (actual time=0.737..0.751 rows=346 loops=1)
+Sort  (cost=584.54..593.79 rows=3702 width=61) (actual time=3.188..3.449 rows=3687 loops=1)
   Sort Key: sale_price
-  Sort Method: quicksort  Memory: 73kB
-  ->  Seq Scan on products  (cost=0.00..34.12 rows=347 width=61) (actual time=0.018..0.565 rows=346 loops=1)
+  Sort Method: quicksort  Memory: 615kB
+  ->  Seq Scan on products  (cost=0.00..365.12 rows=3702 width=61) (actual time=0.007..2.035 rows=3687 loops=1)
         Filter: ((sale_price >= '50000'::numeric) AND (sale_price <= '100000'::numeric))
-        Rows Removed by Filter: 662
-Planning Time: 0.475 ms
-Execution Time: 0.781 ms
+        Rows Removed by Filter: 7321
+Planning Time: 0.243 ms
+Execution Time: 3.606 ms
 ```
 </details>
 
-**Комментарий:** Индекс `idx_products_price` не используется из-за значительного охвата таблицы (346 из 1008 строк). PostgreSQL предпочитает последовательное сканирование.
+**Комментарий:**
+- Индекс `idx_products_price` (btree) не используется, так как диапазон охватывает значительную часть таблицы (3702 строки из 11008).
+- PostgreSQL предпочитает последовательное сканирование (Seq Scan) из-за высокой селективности запроса.
 
 ## Поиск клиентов с картами лояльности
 ```sql
@@ -207,18 +221,20 @@ ORDER BY discount DESC;
 <summary>QUERY PLAN</summary>
 
 ```
-Sort  (cost=4.30..4.48 rows=72 width=30) (actual time=0.089..0.095 rows=72 loops=1)
+Sort  (cost=570.33..585.43 rows=6039 width=34) (actual time=2.797..3.030 rows=6039 loops=1)
   Sort Key: discount DESC
-  Sort Method: quicksort  Memory: 30kB
-  ->  Seq Scan on customers  (cost=0.00..2.08 rows=72 width=30) (actual time=0.015..0.036 rows=72 loops=1)
+  Sort Method: quicksort  Memory: 664kB
+  ->  Seq Scan on customers  (cost=0.00..191.08 rows=6039 width=34) (actual time=0.007..0.910 rows=6039 loops=1)
         Filter: discount_card
-        Rows Removed by Filter: 36
-Planning Time: 0.306 ms
-Execution Time: 0.125 ms
+        Rows Removed by Filter: 4069
+Planning Time: 0.149 ms
+Execution Time: 3.206 ms
 ```
 </details>
 
-**Комментарий:** Маленький размер таблицы (108 строк) делает использование индекса нецелесообразным. PostgreSQL выбирает последовательное сканирование.
+**Комментарий:**
+- Индекс `idx_customers_discount` (partial btree) не используется из-за полного охвата таблицы (6039 строк).
+- Последовательное сканирование предпочтительнее, так как все строки удовлетворяют условию фильтрации.
 
 ## Проверка наличия конкретного товара в отделах
 ```sql
@@ -232,16 +248,29 @@ WHERE i.product_id = 500;
 <summary>QUERY PLAN</summary>
 
 ```
-Nested Loop  (cost=0.15..9.72 rows=1 width=36) (actual time=0.019..0.019 rows=0 loops=1)
-  ->  Seq Scan on inventory i  (cost=0.00..1.54 rows=1 width=8) (actual time=0.018..0.018 rows=0 loops=1)
-        Filter: (product_id = 500)
-        Rows Removed by Filter: 43
-  ->  Index Scan using departments_pkey on departments d  (cost=0.15..8.17 rows=1 width=36) (never executed)
-        Index Cond: (id = i.department_id)
-Planning Time: 0.339 ms
-Execution Time: 0.044 ms
+Nested Loop  (cost=0.45..27.86 rows=3 width=36) (actual time=0.006..0.006 rows=0 loops=1)
+  ->  Index Scan using idx_inventory_prod_dept on inventory i  (cost=0.29..11.84 rows=3 width=8) (actual time=0.005..0.005 rows=0 loops=1)
+        Index Cond: (product_id = 500)
+  ->  Memoize  (cost=0.16..6.84 rows=1 width=36) (never executed)
+        Cache Key: i.department_id
+        Cache Mode: logical
+        ->  Index Scan using departments_pkey on departments d  (cost=0.15..6.83 rows=1 width=36) (never executed)
+              Index Cond: (id = i.department_id)
+Planning Time: 0.261 ms
+Execution Time: 0.029 ms
 ```
 </details>
 
-**Комментарий:** Таблица мала (43 строки), поэтому индекс `idx_inventory_prod_dept` не используется. Последовательное сканирование оказывается быстрее.
+**Комментарий:**
+- Индекс `idx_inventory_prod_dept` (btree) используется для быстрого доступа к строкам, соответствующим фильтру `product_id = 500`.
+- Memoize позволяет избежать повторных обращений к таблице `departments`, но в данном случае не используется, так как результат пустой.
+- Время выполнения минимально благодаря индексации (0.029 мс).
 
+# Заключение
+Проведен анализ производительности запросов в PostgreSQL с использованием индексов. Были протестированы различные типы запросов, включая агрегацию, фильтрацию, сортировку и соединение таблиц, с оценкой их плана выполнения.
+
+Полученные результаты:
+1. Для фильтрации по дате использовался индекс idx_sales_date_product, что позволило сократить время выполнения запроса до 2.128 мс.
+2. Анализ продаж по продавцам за 90 дней занял 6.517 мс, с применением индекса и оптимизацией за счет Memoize.
+3. Последовательное сканирование (Seq Scan) оказалось предпочтительным для запросов с большим охватом данных (например, поиск товаров в ценовом диапазоне занял 3.606 мс).
+4. Индексы в небольших таблицах, таких как customers и inventory, были эффективны, но из-за малых объемов данных PostgreSQL иногда выбирал последовательное сканирование.
