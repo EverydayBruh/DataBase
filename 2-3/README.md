@@ -13,7 +13,7 @@
 
 ## На защиту
 Остановите экземпляр СУБД и выясните, сколько занимает на диске весь кластер БД. Затем определите, во сколько раз его можно сжать алгоритмом zstd с максимальной степенью компрессии.
-
+```bash
 root@ubuntu-jammy:/home/vagrant# sudo systemctl stop postgresql
 
 root@ubuntu-jammy:/var/lib/postgresql/14# du -sh main/
@@ -21,6 +21,13 @@ root@ubuntu-jammy:/var/lib/postgresql/14# du -sh main/
 root@ubuntu-jammy:/var/lib/postgresql/14# sudo tar --zstd -cf postgresql_cluster.tar.zst -C /var/lib/postgresql/14/ main/
 root@ubuntu-jammy:/var/lib/postgresql/14# ls -lh postgresql_cluster.tar.zst
 -rw-r--r-- 1 root root 14M Jan 11 00:47 postgresql_cluster.tar.zst
+```
+
+Результаты:
+- 84 mb до сжатия
+- 14 mb после сжатия
+- сжатие в 6 раз
+
 
 ---
 ## Ход работы

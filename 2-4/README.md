@@ -7,14 +7,15 @@
 
 
 ## На защиту
-Попробуйте хотя бы один индекс, не являющийся B+tree.
+**Попробуйте хотя бы один индекс, не являющийся B+tree.**
 
-
+Для эффективного поиска по названию добавим столбец tsvector и индексирование GIN (оптимален для индексации полей, содержащих множество значений - массивов или текстовых полей)
 ```sql
 ALTER TABLE products ADD COLUMN name_tsv tsvector GENERATED ALWAYS AS (to_tsvector('russian', name)) STORED;
 CREATE INDEX idx_products_name_tsv ON products USING gin(name_tsv);
 ```
 
+Результат EXPLAIN ANALYZE подтверждает, что новый индекс используется.
 ```sql
 jewelry_store=# EXPLAIN ANALYZE
 jewelry_store-# SELECT *       
