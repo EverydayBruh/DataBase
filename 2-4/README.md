@@ -8,6 +8,31 @@
 
 ## На защиту
 Попробуйте хотя бы один индекс, не являющийся B+tree.
+
+
+```sql
+ALTER TABLE products ADD COLUMN name_tsv tsvector GENERATED ALWAYS AS (to_tsvector('russian', name)) STORED;
+CREATE INDEX idx_products_name_tsv ON products USING gin(name_tsv);
+```
+
+```sql
+jewelry_store=# EXPLAIN ANALYZE
+jewelry_store-# SELECT *       
+jewelry_store-# FROM products  
+jewelry_store-# WHERE name_tsv @@ plainto_tsquery('russian', 'серебряное кольцо');
+                                                           QUERY PLAN
+---------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on products  (cost=12.00..16.01 rows=1 width=143) (actual time=0.701..1.360 rows=712 loops=1)
+   Recheck Cond: (name_tsv @@ '''серебрян'' & ''кольц'''::tsquery)
+   Heap Blocks: exact=264
+   ->  Bitmap Index Scan on idx_products_name_tsv  (cost=0.00..12.00 rows=1 width=0) (actual time=0.629..0.630 rows=712 loops=1) 
+         Index Cond: (name_tsv @@ '''серебрян'' & ''кольц'''::tsquery)
+ Planning Time: 0.328 ms
+ Execution Time: 1.456 ms
+(7 rows)
+```
+
+
 # Схема данных
 ### Таблица `departments`
 - `id` (Primary Key) - уникальный идентификатор отдела
